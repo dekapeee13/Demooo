@@ -31,7 +31,7 @@ def cmd(ident, typ, gU, gS, E50, m, c, phi, psi, e0, usda, col):
     return (f'_soilmat "Identification" "{ident}" "SoilModel" "Hardening Soil" "Colour" {col} '
             f'"DrainageType" "{"Undrained (A)" if clay else "Drained"}" '
             f'"gammaUnsat" {gU} "gammaSat" {gS} "E50Ref" {E50} "EOedRef" {E50} "EURRef" {3 * E50} '
-            f'"PowerM" {m} "nu" 0.2 "pRef" 100 "Rf" 0.9 "cRef" {c} "phi" {phi} "psi" {psi} '
+            f'"PowerM" {m} "pRef" 100 "cRef" {c} "phi" {phi} "psi" {psi} '
             f'"OCR" 1 "POP" 0 '
             f'"GroundwaterClassificationType" "USDA" "GroundwaterSoilClassUSDA" "{usda}" "GwUseDefaults" True '
             f'"nInit" {e0 / (1 + e0):.3f} "InterfaceStrengthDetermination" "Manual" "Rinter" {0.7 if clay else 0.67}')
