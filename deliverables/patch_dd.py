@@ -143,4 +143,4 @@ def patch(src, dst, own_bh):
 
 if __name__ == '__main__':
     for bh in ['01', '02', '03', '04', '05']:
-        print(bh, patch(f'drv/PBCP-BH-{bh}_rev3.xlsx', f'out/PBCP-BH-{bh}_rev4.xlsx', f'BH-{bh}'))
+        print(bh, patch(f'drv2/PBCP-BH-{bh}_rev3.xlsx', f'out/PBCP-BH-{bh}_rev4.xlsx', f'BH-{bh}'))
