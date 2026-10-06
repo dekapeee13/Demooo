@@ -5,7 +5,7 @@ from xlsx_cellwriter import Sheet
 
 GAM = {'BH-01': (17.8, 19.2), 'BH-02': (18.5, 18.4), 'BH-03': (16.5, 19.0), 'BH-04': (19.6, 20.2), 'BH-05': (18.3, 18.2)}  # Tabel 5.1
 GWL = {'BH-01': 9, 'BH-02': 7, 'BH-03': 8, 'BH-04': 9, 'BH-05': 7}   # GWL analisis likuefaksi
-LOADS = (5152.9, 1583.9, 1101.5, 0.0)
+LOADS = (3000.0, 600.0, 500.0, 0.0)   # beban seragam (sama dengan BH-03)
 COPY = {'BH-04': ('BH-01', 25), 'BH-05': ('BH-02', 25), 'BH-03': ('BH-02', 22.5)}
 ZLIM = 19.5          # sampel <= 19,5 m (lapisan 19,5-21 m) = batas 20 m laporan
 
@@ -32,15 +32,12 @@ for b in ['01', '02', '03', '04', '05']:
     I.set('E16', 'Report Tabel 5.1'); I.set('E17', 'Report Tabel 5.1')
     I.set('E26', 'sesuai perhitungan sebelumnya'); I.set('E27', 'sesuai perhitungan sebelumnya')
     I.set('E45', 'DD_max tidak difaktorkan (beban faktor 1,0)')
-    if bh != 'BH-03':
-        for r, v in zip((48, 49, 50, 51), LOADS):
-            I.set(f'C{r}', v)
-        I.set('E48', 'GROUP WPD 2 cellar 4x1, ASD2(max) - beban lama, update dgn GROUP beban revisi')
-        I.set('E49', 'GROUP WPD 2 cellar 4x1, LRFD3 - beban lama, update dgn GROUP beban revisi')
-        I.set('E50', 'GROUP WPD 2 cellar 4x1, ASD1 (DL) - beban lama, update dgn GROUP beban revisi')
-        I.set('E51', 'GROUP: tidak ada tiang tarik pada kombinasi yang ditinjau')
-    else:
-        I.set('E48', 'beban uji pengguna - Logyard belum ada hasil GROUP')
+    for r, v in zip((48, 49, 50, 51), LOADS):
+        I.set(f'C{r}', v)
+    I.set('E48', 'beban seragam semua BH (sama dengan BH-03) - update dgn GROUP beban revisi')
+    I.set('E49', 'beban seragam semua BH (sama dengan BH-03) - update dgn GROUP beban revisi')
+    I.set('E50', 'beban seragam semua BH (sama dengan BH-03) - update dgn GROUP beban revisi')
+    I.set('E51', 'tidak ada tiang tarik pada kombinasi yang ditinjau')
     # ---- Data Tanah ----
     own = {round(t, 2): (s, n) for t, h, s, n in spt[bh]}
     for r in range(7, 48):
