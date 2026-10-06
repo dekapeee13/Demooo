@@ -175,7 +175,8 @@ IN['Hb'] = calc(wi, r, 'Depth for averaging shear strength', 'as previous templa
 IN['rinf'] = calc(wi, r, "Influence depth limit: Δσz / σ'v0 ≥", 'dense / OC soil', 'ratio =', 0.20, '-', kind='in'); r += 1
 IN['Slim'] = calc(wi, r, 'Allowable total settlement (assumed)', 'to be confirmed', 'S all =', 100.0, 'mm', kind='in'); r += 1
 IN['slope'] = calc(wi, r, 'Embankment side slope, horizontal : 1 vertical', '1V : nH', 'n =', 2.0, '-', '0.0', 'in'); r += 1
-IN['FSsq'] = calc(wi, r, 'Required FS against lateral squeeze', 'FHWA-NHI-06-088', 'FS req =', 1.5, '-', kind='in'); r += 2
+IN['FSsq'] = calc(wi, r, 'Required FS against lateral squeeze', 'FHWA-NHI-06-088', 'FS req =', 1.5, '-', kind='in'); r += 1
+IN['ncmax'] = calc(wi, r, 'Upper limit of squeezing factor Nc* (0 = no limit)', 'optional, conservative', 'Nc*max =', 0.0, '-', '0.0', 'in'); r += 2
 text(wi, r, '1.3. Replacement material', f_b); r += 1
 IN['gr'] = calc(wi, r, 'Unit weight of compacted granular fill', 'assumed', 'γr =', 19.0, 'kN/m³', kind='in'); r += 1
 IN['phr'] = calc(wi, r, 'Friction angle of granular fill', 'assumed', "φ'r =", 35.0, '°', kind='in'); r += 1
@@ -213,7 +214,7 @@ IQ = {k: 'Input!' + v for k, v in IN.items()}
 
 # =====================================================================================
 HELP = ['top', 'bot', 'h', 'z', 'typ', 'N', 'g', 'sv', 's0', 'LL', 'PL', 'PI', 'e0', 'cu', 'phi', 'E', 'nu', 'm', 'n', 'I', 'ds',
-        'F1', 'F2', 'keep', 'Si', 'Cc', 'Cr', 'sp', 'Sc', 'Cv', 't90', 'hb0', 'hbr', 'hzi', 'ket']
+        'F1', 'F2', 'keep', 'Si', 'Cc', 'Cr', 'sp', 'Sc', 'Cv', 't90', 'hb0', 'hbr', 'St', 'ket']
 HC = {k: CL(35 + i) for i, k in enumerate(HELP)}          # helper calculation columns AI.. (outside print area)
 summary = {}
 for bh in BHS:
@@ -244,7 +245,7 @@ for bh in BHS:
     GW = calc(ws, r, 'Design groundwater level (below ground)', 'liquefaction report', 'GWL =', B.GWL[bh], 'm', '0.0', 'in'); r += 1
     G1 = calc(ws, r, 'Unit weight above GWL', 'report Table 5.1', 'γ =', g_un, 'kN/m³', '0.0', 'in'); r += 1
     G2 = calc(ws, r, 'Unit weight below GWL', 'report Table 5.1', 'γsat =', g_sat, 'kN/m³', '0.0', 'in'); r += 1
-    DR = calc(ws, r, 'Replacement depth (design condition)', '0 = no improvement', 'Dr =', 0.0, 'm', '0.0', 'in'); r += 2
+    DR = calc(ws, r, 'Replacement depth (design condition)', '0 = no improvement', 'Dr =', {'BH-01': 1.0, 'BH-04': 1.0}.get(bh, 0.0), 'm', '0.0', 'in'); r += 2
     r = figure(ws, r, 'fig1_section', 'Figure 1. Typical cross-section of the wellpad embankment, design load and subsoil')
     r = P.new(r)
     text(ws, r, '2. SOIL PARAMETERS', f_b); r += 1
@@ -305,7 +306,7 @@ for bh in BHS:
             't90': f'=IF(OR({sand},{h("keep")}=0),0,{IQ["Tv"]}*({h("h")}/2)^2/({h("Cv")}*1E-4*31536000))',
             'hb0': f'=MAX(0,MIN({h("bot")},{HB})-{h("top")})',
             'hbr': f'=MAX(0,MIN({h("bot")},{HB})-MAX({h("top")},{DR}))',
-            'hzi': f'=MAX(0,MIN({h("bot")},ZIREF)-{h("top")})',
+            'St': f'={h("Si")}+{h("Sc")}',
             'ket': '; '.join(note),
         }
         for k in HELP:
@@ -350,7 +351,7 @@ for bh in BHS:
         gam = calc(ws, r, 'Average effective unit weight', '0 - Hb', "γ' =",
                    f'=(SUMPRODUCT({ovl},{hr_("g")})+{drh}*{IQ["gr"]})/{HB}-10*MAX(0,{HB}-{GW})/{HB}', 'kN/m³', '0.0'); r += 1
         ncs = calc(ws, r, "Bearing factor, thin soft layer (H' = Σh)", "Nc* = 4.14 + 0.5·B/H' ≥ 5.14", 'Nc* =',
-                   f'=IF({hf}=0,5.14,MAX(5.14,4.14+0.5*{Bw}/{hf}))', '-'); r += 1
+                   f'=IF({hf}=0,5.14,MAX(5.14,IF({IQ["ncmax"]}>0,MIN({IQ["ncmax"]},4.14+0.5*{Bw}/{hf}),4.14+0.5*{Bw}/{hf})))', '-'); r += 1
         sc = calc(ws, r, 'Shape factor (undrained)', 'sc = 1 + 0.2 B/L', 'sc =', f'=1+0.2*{Bw}/{Lw}', '-'); r += 1
         quu = calc(ws, r, 'Ultimate capacity, undrained', 'qu = cu·Nc*·sc', 'qu,u =', f'=IF({hf}=0,"n/a",{cu}*{ncs}*{sc})', 'kPa', '0.0'); r += 1
         nq = calc(ws, r, 'Bearing capacity factor', 'Nq = e^(π·tanφ)·tan²(45+φ/2)', 'Nq =', f'=EXP(PI()*TAN(RADIANS({phi})))*TAN(RADIANS(45+{phi}/2))^2', '-'); r += 1
@@ -417,16 +418,8 @@ for bh in BHS:
     sis = calc(ws, r, '   - contribution of sand layers', '', '', f'=SUMPRODUCT(--({hr_("typ")}="Sand"),{hr_("Si")})', 'mm', '0.0'); r += 1
     calc(ws, r, '   - contribution of silt/clay layers', '', '', f'={si}-{sis}', 'mm', '0.0'); r += 1
 
-    # ---------------- PAGE 4 : sand check + consolidation ----------------
+    # ---------------- PAGE 4 : stress figure + consolidation method ----------------
     r = P.new(r if 'r' in dir() else None)
-    text(ws, r, '4.1. Check for granular soil - Burland & Burbidge (1985), normally consolidated sand', f_b); r += 1
-    text(ws, r, '      S = fs · fl · q · B^0.7 · Ic ,   Ic = 1.71 / N̄^1.4 ,   zI = B^0.763', f_i); r += 1
-    zi = calc(ws, r, 'Depth of influence', 'zI = B^0.763', 'zI =', f'=MIN({Bw}^0.763,{HC["bot"]}{RN})', 'm'); r += 1
-    nbar = calc(ws, r, 'Average measured N within zI', '', 'N̄ =', f'=SUMPRODUCT({hr_("hzi")},{hr_("N")})/{zi}', '-', '0.0'); r += 1
-    ic = calc(ws, r, 'Compressibility index', 'Ic = 1.71 / N̄^1.4', 'Ic =', f'=1.71/{nbar}^1.4', '-', '0.0000'); r += 1
-    fsh = calc(ws, r, 'Shape factor', 'fs = [1.25(L/B)/(L/B+0.25)]²', 'fs =', f'=(1.25*{Lw}/{Bw}/({Lw}/{Bw}+0.25))^2', '-'); r += 1
-    sbb = calc(ws, r, 'Settlement of sand (fl = 1)', 'S = fs·q·B^0.7·Ic', 'S =', f'={fsh}*{q}*{Bw}^0.7*{ic}', 'mm', '0.0', 'res'); r += 1
-    text(ws, r, 'Burland & Burbidge assumes the whole influence zone is sand; where silt/clay is present the layered elastic value governs.', f_note); r += 2
     r = figure(ws, r, 'fig4_stress', 'Figure 4. Stress distribution below the loaded area and layered elastic settlement')
     text(ws, r, '5. PRIMARY CONSOLIDATION SETTLEMENT (silt/clay layers, design condition)', f_b); r += 1
     for s in ["Sc = h/(1+e0) · [Cr·log(σ'p/σ'v0) + Cc·log((σ'v0+Δσz)/σ'p)]  (Das 2019); Δσz from Boussinesq at the centre of the area;",
@@ -458,7 +451,6 @@ for bh in BHS:
     calc(ws, r, 'FS against lateral squeeze - design condition', 'Section 3.4', 'FS =', f'={sq["r"]["fs"]}', '-', '0.00'); r += 1
     W(ws, r, 3, 14, '   check'); W(ws, r, 24, 31, f'={sq["r"]["chk"]}', f_ok, align=C_C); r += 1
     calc(ws, r, 'Immediate settlement (layered elastic)', 'Section 4', 'Si =', f'={si}', 'mm', '0.0'); r += 1
-    calc(ws, r, 'Immediate settlement of sand (B&B check)', 'Section 4.1', 'S =', f'={sbb}', 'mm', '0.0'); r += 1
     calc(ws, r, 'Consolidation settlement', 'Section 5', 'Sc =', f'={scs}', 'mm', '0.0'); r += 1
     calc(ws, r, 'Time for 90 % consolidation', 'Section 5', 't90 =', f'={t90}', 'year', '0.00'); r += 1
     stot = calc(ws, r, 'Total long-term settlement', 'S = Si + Sc', 'S =', f'={si}+{scs}', 'mm', '0.0', 'res'); r += 1
@@ -471,17 +463,20 @@ for bh in BHS:
     ch = ScatterChart(); ch.style = 13; ch.title = None
     ch.y_axis.title = 'Depth (m)'; ch.x_axis.title = 'Settlement per sub-layer (mm)'; ch.y_axis.scaling.orientation = 'maxMin'
     ch.x_axis.delete = False; ch.y_axis.delete = False; ch.legend.position = 'b'
-    for k, nm in (('Si', 'Immediate Si'), ('Sc', 'Consolidation Sc')):
+    ch.scatterStyle = 'lineMarker'
+    for k, nm, col, sym, wid in (('Si', 'Immediate Si', '0072B2', 'circle', 19050), ('Sc', 'Consolidation Sc', 'E69F00', 'square', 19050),
+                                 ('St', 'Total S = Si + Sc', 'C00000', 'triangle', 28575)):
         ci = 35 + HELP.index(k)
         srs = Series(Reference(ws, min_col=35 + HELP.index('z'), min_row=R0, max_row=RN), Reference(ws, min_col=ci, min_row=R0, max_row=RN), title=nm)
-        srs.marker.symbol = 'circle'; srs.marker.size = 5
+        srs.graphicalProperties.line.solidFill = col; srs.graphicalProperties.line.width = wid
+        srs.marker.symbol = sym; srs.marker.size = 6
+        srs.marker.graphicalProperties.solidFill = col; srs.marker.graphicalProperties.line.solidFill = col
+        srs.smooth = False
         ch.series.append(srs)
     ch.width = 17; ch.height = 11
     ws.add_chart(ch, f'D{r}')
-    for rr in range(R0, RN + 1):
-        c = ws[f'{HC["hzi"]}{rr}']; c.value = c.value.replace('ZIREF', zi)
     P.close()
-    summary[bh] = dict(res=res, sq=sq, dr=DR, qam=qam, si=si, sbb=sbb, sc=scs, t90=t90, st=stot)
+    summary[bh] = dict(res=res, sq=sq, dr=DR, qam=qam, si=si, sc=scs, t90=t90, st=stot)
 
 # =====================================================================================
 ws = wb.create_sheet('Summary', 1)
@@ -508,7 +503,6 @@ items = [('Silt/clay thickness within 0 - Hb', 'm', lambda s: s['res']['0']['hf'
          ('Allowable fill height (design)', 'm', lambda s: s['res']['r']['hall'], '0.0'),
          ('qa for 25 mm (granular soil)', 'kPa', lambda s: s['qam'], '0'),
          ('Immediate settlement Si', 'mm', lambda s: s['si'], '0.0'),
-         ('Sand settlement - B&B check', 'mm', lambda s: s['sbb'], '0.0'),
          ('Consolidation settlement Sc', 'mm', lambda s: s['sc'], '0.0'),
          ('Time for 90 % consolidation', 'year', lambda s: s['t90'], '0.00'),
          ('Total settlement S = Si + Sc', 'mm', lambda s: s['st'], '0.0')]
@@ -525,12 +519,11 @@ notes = ['NOTES',
          '1. Bearing capacity: undrained (cu·Nc) where silt/clay exists within 0 - Hb; drained (Vesic) for granular soil. For a wide loaded area the',
          '    Nγ term gives a very large drained capacity, i.e. shear failure does not govern; settlement governs the design.',
          "2. Granular soil: (a) drained bearing capacity with φ' from N-SPT; (b) allowable pressure for 25 mm settlement (Meyerhof/Bowles);",
-         '    (c) immediate settlement by the layered elastic method (upper bound, constant E) and by Burland & Burbidge (empirical, more',
-         '    realistic for sand); (d) no primary consolidation in sand; (e) loose saturated sand: add post-liquefaction settlement for the seismic case.',
+         '    (c) sand is assumed to undergo immediate (elastic) settlement only - no primary consolidation; (d) loose saturated sand: add post-liquefaction settlement for the seismic case.',
          '3. Loaded area B × L = 74 m × 202 m (design brief). For such a wide area the stress increase reaches great depth, so deeper layers contribute to settlement down to the influence depth (Δσz ≥ 0.2·σ\'v0).',
          '4. Post-liquefaction settlement (liquefaction report, Table 5.4): BH-01 289, BH-02 383, BH-03 227, BH-04 159, BH-05 100 mm - assessed separately.',
          '5. BH-01 at 1.5 m: SPT log = clay N 5, liquefaction report/laboratory = sand SP N 12. The SPT log is used (conservative).',
-         '6. BH-01 and BH-04: soft silt/clay 0 - 3 m over dense sand is checked with the squeezing factor Nc* (Meyerhof 1974) and for lateral squeeze at the toe; bearing capacity is adequate without replacement (Dr = 0). Replacement Dr reduces settlement of the soft layer (input per borehole).',
+         '6. BH-01 and BH-04: soft silt/clay 0 - 3 m over dense sand is checked with the squeezing factor Nc* (Meyerhof 1974, optional upper limit in Input) and for lateral squeeze at the toe. Design condition: replacement Dr = 1.0 m with compacted granular fill (input per borehole; all checks respond to Dr).',
          '7. Total settlement exceeds the assumed allowable 100 mm at most boreholes: confirm the settlement criterion; consider preloading/surcharging before construction of settlement-sensitive structures.']
 import textwrap
 merged = [notes[0]]
