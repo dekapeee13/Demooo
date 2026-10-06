@@ -30,7 +30,7 @@ def cmd(ident, typ, gU, gS, E50, m, c, phi, psi, e0, usda, col):
     clay = typ == 'C'
     return (f'_soilmat "Identification" "{ident}" "SoilModel" "Hardening Soil" "Colour" {col} '
             f'"DrainageType" "{"Undrained (A)" if clay else "Drained"}" '
-            f'"gammaUnsat" {gU} "gammaSat" {gS} "E50Ref" {E50} "EOedRef" {E50} "EURRef" {3 * E50} '
+            f'"gammaUnsat" {gU} "gammaSat" {max(gU, gS)} "E50Ref" {E50} "EOedRef" {E50} "EURRef" {3 * E50} '
             f'"PowerM" {m} "pRef" 100 "cRef" {c} "phi" {phi} "psi" {psi} '
             f'"OCR" 1 "POP" 0 '
             f'"GroundwaterClassificationType" "USDA" "GroundwaterSoilClassUSDA" "{usda}" "GwUseDefaults" True '
