@@ -76,7 +76,9 @@ notes = ['Notes:',
          'Red P min = tension in the pile (LRFD2(min) / seismic cases): check tension reinforcement and pull-out capacity.',
          "Cracking moment Mcr = 0.62 sqrt(fc') I/c = 333 kNm (no axial): M max above Mcr -> cracked section, design with SPColumn.",
          'Wellpad D: LC 1C-A = load of cellar A, 1C-B = load of cellar B (2-cellar load, 1-cellar model).',
-         'Non-seismic cases (ASD1/2, LRFD1/2) are equal to the run without cap inertia (difference < 0.06).']
+         'Non-seismic cases (ASD1/2, LRFD1/2) are equal to the run without cap inertia (difference < 0.06).',
+         'LOAD CHECK (sum of pile-head P vs current rig reactions, see Rekap_Gaya_Kepala_Tiang_PileCap, sheet Check_SumP):',
+         '   ASD2(max)/(min) of WPA and WPD and LRFD2(max)/(min) of WPA do NOT match the current rig loads (old load set) -> re-run before final design.']
 for i, t in enumerate(notes):
     ws.cell(nxt + i, 1, t).font = FB if i == 0 else F
 setup(ws); ws.freeze_panes = 'D5'
@@ -116,6 +118,35 @@ for wp in ('WPA', 'WPD'):
         inp.append([wp, lab, f'{r[1]} - {r[2]} / pile {r[3]}', r[5], r[6]])
 put(ws, r0 + 1, ['Wellpad', 'Point', 'Source', 'Pu (kN)', 'Mu (kNm)'], inp, None, [None, None, None, '#,##0', '#,##0'])
 setup(ws); ws.freeze_panes = 'A5'
+
+
+# ------------------------------------------------------------------ 2b. SPColumn input (copy-paste ready)
+ws = wb.create_sheet('SPColumn_Input', 2)
+title(ws, 'SPCOLUMN FACTORED LOADS - ready to paste (Loads > Factored Loads)',
+      'Copy columns B:D (Pu, Mux, Muy) of each block into spColumn. Pu: + compression, - tension (spColumn sign). '
+      'Circular section: resultant Mu entered as Mux, Muy = 0. All LRFD load cases x all piles x M1/M3.')
+r0, col0 = 4, 1
+for wp in ('WPA', 'WPD'):
+    lst = sorted(((mdl, lc, p, e) for (w, mdl, lc, p), e in pile.items() if w == wp and method(lc) == 'LRFD'),
+                 key=lambda t: (t[0], t[1], t[2]))
+    ws.cell(r0, col0, f'{wp} - {len(lst)} load points').font = Font(name='Calibri', size=11, bold=True, color=NAVY)
+    dat = [[i, round(e['P'], 1), round(e['M'], 1), 0, f'{COND[mdl]} | {lc} | pile {p} | Mu at z = {e["zM"]:g} m']
+           for i, (mdl, lc, p, e) in enumerate(lst, 1)]
+    hi = {(max(range(len(dat)), key=lambda i: dat[i][1]), 1), (min(range(len(dat)), key=lambda i: dat[i][1]), 1),
+          (max(range(len(dat)), key=lambda i: dat[i][2]), 2)}
+    for i, row in enumerate(dat):
+        for j, v in enumerate(row):
+            c = ws.cell(r0 + 2 + i, col0 + j, v); c.font, c.border = (RED if (i, j) in hi else F), B
+            c.alignment = Alignment(horizontal='left' if j == 4 else 'center')
+            if j in (1, 2, 3): c.number_format = '0.0'
+    for j, h in enumerate(['No.', 'Pu (kN)', 'Mux (kNm)', 'Muy (kNm)', 'Description (not for spColumn)']):
+        c = ws.cell(r0 + 1, col0 + j, h); c.font, c.fill, c.alignment, c.border = HF, HFILL, C, B
+    for j, w in enumerate([6, 10, 11, 11, 52]):
+        ws.column_dimensions[get_column_letter(col0 + j)].width = w
+    with open(out.rsplit('/', 1)[0] + f'/SPColumn_Loads_{wp}.csv' if '/' in out else f'SPColumn_Loads_{wp}.csv', 'w') as fh:
+        fh.write('\n'.join(f'{r[1]},{r[2]},{r[3]}' for r in dat) + '\n')
+    col0 += 7
+ws.freeze_panes = 'A6'; setup(ws)
 
 # ------------------------------------------------------------------ 3. Envelope vs depth
 ws = wb.create_sheet('Envelope_Depth')
