@@ -1,12 +1,14 @@
-"""Rekap gaya dalam tiang (GROUP +Icap) -> tidy workbook + SPColumn load pairs.
-Usage: python3 build_rekap.py <source Rekap_Gaya_Dalam_Tiang_GROUP_SPColumn.xlsx> <out.xlsx>"""
+"""Rekap gaya dalam tiang from the GROUP rerun outputs (16 piles, 2 cellars) -> tidy workbook + SPColumn load pairs.
+Usage: python3 build_rekap.py <folder with M1/M3_Wellpad A/D_4x1.gp11o.txt> <out.xlsx>"""
 import sys, collections
 import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 
 src, out = sys.argv[1], sys.argv[2]
-rows = [r for r in openpyxl.load_workbook(src, data_only=True)['Data'].iter_rows(min_row=2, values_only=True) if r[0]]
+import rerun
+DATA = rerun.load(src)
+rows = rerun.rows(DATA)
 # r = (wellpad, model, lc, pile, z, P, M, V, y, p_soil, stress)
 COND = {'M1': 'Non-liquefied', 'M3': 'Liquefied'}
 method = lambda lc: 'LRFD' if lc.startswith('LRFD') else 'ASD'
@@ -55,8 +57,8 @@ for wp, mdl, lc, p, z, P, M, V, y, *_ in rows:
 wb = openpyxl.Workbook()
 # ------------------------------------------------------------------ 1. Summary
 ws = wb.active; ws.title = 'Summary'
-title(ws, 'PILE INTERNAL FORCES - BORED PILE D1000, GROUP 4x1 WITH CAP INERTIA (+Icap)',
-      'P = axial at pile head (+ compression, - tension), constant along the pile. M, V = resultant. Output points every 5.3 m (GROUP .gp11o).')
+title(ws, 'PILE INTERNAL FORCES - BORED PILE D1000, GROUP 16 PILES (2 CELLARS, 4x1 PER RIG NODE) WITH CAP INERTIA (+Icap)',
+      'P = axial at pile head (+ compression, - tension), constant along the pile. M, V = resultant of both directions. Source: GROUP rerun .gp11o (Drive 02. Output GROUP).')
 grp = collections.defaultdict(list)
 for (wp, mdl, lc, p), e in pile.items():
     grp[(wp, mdl, method(lc))].append((lc, p, e))
@@ -72,13 +74,12 @@ nxt = put(ws, 4, ['Wellpad', 'Condition', 'Design', 'P max (kN)', 'LC / pile', '
           data, [8, 13, 7, 10, 16, 10, 16, 10, 11, 9, 16, 10, 9, 16, 10],
           [None, None, None, '#,##0', None, '#,##0', None, '#,##0', '#,##0', '0.0', None, '#,##0', '0.0', None, '0.0'], hi)
 notes = ['Notes:',
-         'Cap inertia 1,886 kN (0.4 SDS x W cap 5,575.5 kN); seismic: ASD 0.7E, LRFD 1.0E; direction 100/30.',
-         'Red P min = tension in the pile (LRFD2(min) / seismic cases): check tension reinforcement and pull-out capacity.',
+         'Seismic: ASD 0.7E, LRFD 1.0E incl. cap inertia; direction 100/30. M3 (liquefied) run has 6 load cases (ASD1/3/4, LRFD1/3/4).',
+         'Red P min = tension in the pile (if any): check tension reinforcement and pull-out capacity.',
          "Cracking moment Mcr = 0.62 sqrt(fc') I/c = 333 kNm (no axial): M max above Mcr -> cracked section, design with SPColumn.",
-         'Wellpad D: LC 1C-A = load of cellar A, 1C-B = load of cellar B (2-cellar load, 1-cellar model).',
-         'Non-seismic cases (ASD1/2, LRFD1/2) are equal to the run without cap inertia (difference < 0.06).',
-         'LOAD CHECK (sum of pile-head P vs current rig reactions, see Rekap_Gaya_Kepala_Tiang_PileCap, sheet Check_SumP):',
-         '   ASD2(max)/(min) of WPA and WPD and LRFD2(max)/(min) of WPA do NOT match the current rig loads (old load set) -> re-run before final design.']
+         'Equilibrium: sum of the 16 pile-head axial forces = vertical load at the cap origin for every load case (checked).',
+         'Pile length in the GROUP models (last output depth): ' + ', '.join(f'{k[0]} {k[1]} {v["cases"][0]["piles"][1]["depth"][-1]["x"]:g} m' for k, v in DATA.items())
+         + '. Design: WPA 43 m, WPD 48 m.']
 for i, t in enumerate(notes):
     ws.cell(nxt + i, 1, t).font = FB if i == 0 else F
 setup(ws); ws.freeze_panes = 'D5'
@@ -167,14 +168,15 @@ setup(ws)
 
 # ------------------------------------------------------------------ 4. Raw data
 ws = wb.create_sheet('Data')
-put(ws, 1, ['Wellpad', 'Model', 'Load case', 'Pile', 'z (m)', 'P (kN)', 'M (kNm)', 'V (kN)', 'y (mm)', 'p soil (kN/m)', 'Stress (kPa)'],
-    [list(r) for r in rows], [8, 7, 16, 6, 7, 10, 10, 10, 10, 11, 11])
-ws.freeze_panes = 'A2'; ws.auto_filter.ref = f'A1:K{len(rows) + 1}'
+put(ws, 1, ['Wellpad', 'Model', 'Load case', 'Pile', 'z (m)', 'P (kN)', 'M resultant (kNm)', 'V resultant (kN)', 'Defl. (mm)'],
+    [list(r[:9]) for r in rows], [8, 7, 16, 6, 7, 10, 11, 11, 10])
+ws.freeze_panes = 'A2'; ws.auto_filter.ref = f'A1:I{len(rows) + 1}'
 wb.save(out)
 
 if __name__ == '__main__':
     chk = openpyxl.load_workbook(out)['Summary']
     vals = {(chk.cell(r, 1).value, chk.cell(r, 2).value, chk.cell(r, 3).value): chk.cell(r, 8).value for r in range(5, 13)}
-    assert abs(vals[('WPA', 'Liquefied', 'LRFD')] - 904.19) < 0.1, vals   # matches source Ringkasan
-    assert abs(vals[('WPD', 'Non-liquefied', 'LRFD')] - 655.07) < 0.1, vals
+    pm = {(chk.cell(r, 1).value, chk.cell(r, 2).value, chk.cell(r, 3).value): chk.cell(r, 4).value for r in range(5, 13)}
+    assert abs(pm[('WPA', 'Non-liquefied', 'LRFD')] - 6880.5) < 0.1, pm   # = Rekap_Wellpad_A, Envelope per Pile
+    assert abs(pm[('WPD', 'Non-liquefied', 'ASD')] - 5057.0) < 0.1, pm
     print('ok', out)
